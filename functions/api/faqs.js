@@ -26,15 +26,16 @@ function stripTags(s) {
 
 function parseFaqRows(html) {
   const faqs = [];
-  const subjectMatches = [...html.matchAll(/<td[^>]*class=["']subject["'][^>]*>([\s\S]*?)<\/td>/gi)]
+
+  const subjects = [...html.matchAll(/<td[^>]*class=["']subject["'][^>]*>([\s\S]*?)<\/td>/gi)]
     .map(m => stripTags(m[1]))
     .filter(Boolean);
 
-  for (let i = 0; i + 1 < subjectMatches.length; i += 2) {
+  for (let i = 0; i + 1 < subjects.length; i += 2) {
     faqs.push({
       id: `faq-${i / 2 + 1}`,
-      q: subjectMatches[i],
-      a: subjectMatches[i + 1],
+      q: subjects[i],
+      a: subjects[i + 1],
     });
   }
 
@@ -53,11 +54,16 @@ export const onRequestGet = async () => {
 
     if (!r.ok) throw new Error(`fetch failed: ${r.status}`);
 
-    const html = await r.text();
+    // 🔥 EUC-KR 강제 디코딩
+    const buffer = await r.arrayBuffer();
+    const html = new TextDecoder("euc-kr").decode(buffer);
+
     const faqs = parseFaqRows(html);
 
     return new Response(JSON.stringify({ ok: true, count: faqs.length, faqs }), {
-      headers: { "content-type": "application/json; charset=utf-8" },
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+      },
     });
 
   } catch (e) {
