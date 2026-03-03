@@ -26,47 +26,19 @@ function stripTags(s) {
 
 function parseFaqRows(html) {
   const faqs = [];
+  const subjectMatches = [...html.matchAll(/<td[^>]*class=["']subject["'][^>]*>([\s\S]*?)<\/td>/gi)]
+    .map(m => stripTags(m[1]))
+    .filter(Boolean);
 
-  const qRe = /<tr[^>]*class=["']bg["'][\s\S]*?<\/tr>/gi;
-  const aRe = /<tr[^>]*style=["'][^"']*display\s*:\s*none[^"']*["'][\s\S]*?<\/tr>/gi;
-
-  const qRows = html.match(qRe) || [];
-  const aRows = html.match(aRe) || [];
-
-  const n = Math.min(qRows.length, aRows.length);
-
-  for (let i = 0; i < n; i++) {
-    const qRow = qRows[i];
-    const aRow = aRows[i];
-
-    const qTd = /<td[^>]*class=["']subject["'][^>]*>([\s\S]*?)<\/td>/i.exec(qRow);
-    const aTd = /<td[^>]*class=["']subject["'][^>]*>([\s\S]*?)<\/td>/i.exec(aRow);
-
-    const q = stripTags(qTd?.[1] || "");
-    const a = stripTags(aTd?.[1] || "");
-
-    if (!q || !a) continue;
-
-    faqs.push({ id: `faq-${i + 1}`, q, a });
+  for (let i = 0; i + 1 < subjectMatches.length; i += 2) {
+    faqs.push({
+      id: `faq-${i / 2 + 1}`,
+      q: subjectMatches[i],
+      a: subjectMatches[i + 1],
+    });
   }
 
-  // fallback: subject td들을 2개씩 (Q/A) 묶기
-  if (faqs.length === 0) {
-    const subjects = [...html.matchAll(/<td[^>]*class=["']subject["'][^>]*>([\s\S]*?)<\/td>/gi)]
-      .map(m => stripTags(m[1]))
-      .filter(Boolean);
-
-    for (let i = 0; i + 1 < subjects.length; i += 2) {
-      faqs.push({ id: `faq-${i / 2 + 1}`, q: subjects[i], a: subjects[i + 1] });
-    }
-  }
-
-  const seen = new Set();
-  return faqs.filter(f => {
-    if (seen.has(f.q)) return false;
-    seen.add(f.q);
-    return true;
-  });
+  return faqs;
 }
 
 export const onRequestGet = async () => {
@@ -79,22 +51,15 @@ export const onRequestGet = async () => {
       },
     });
 
-    if (!r.ok) {
-      return new Response(JSON.stringify({ ok: false, error: `fetch failed: ${r.status}` }), {
-        status: 500,
-        headers: { "content-type": "application/json; charset=utf-8" },
-      });
-    }
+    if (!r.ok) throw new Error(`fetch failed: ${r.status}`);
 
     const html = await r.text();
     const faqs = parseFaqRows(html);
 
     return new Response(JSON.stringify({ ok: true, count: faqs.length, faqs }), {
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "cache-control": "public, max-age=600",
-      },
+      headers: { "content-type": "application/json; charset=utf-8" },
     });
+
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
       status: 500,
