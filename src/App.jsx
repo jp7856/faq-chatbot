@@ -5,26 +5,25 @@ function normalize(s) {
   return (s || "")
     .toLowerCase()
     .replace(/\s+/g, " ")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^a-z0-9가-힣\s]/g, " ") // ✅ 안전: 한글/영문/숫자만
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// 아주 간단한 유사도(토큰 겹침) — 오타/비슷한 질문도 어느 정도 매칭
 function scoreMatch(query, question) {
   const q = normalize(query);
   const t = normalize(question);
   if (!q || !t) return 0;
 
-  if (t.includes(q)) return 100; // 포함이면 강하게
+  if (t.includes(q)) return 100;
 
-  const qTokens = new Set(q.split(" ").filter(Boolean));
-  const tTokens = new Set(t.split(" ").filter(Boolean));
+  const qTokens = q.split(" ").filter(Boolean);
+  const tSet = new Set(t.split(" ").filter(Boolean));
+
   let hit = 0;
-  for (const tok of qTokens) if (tTokens.has(tok)) hit++;
+  for (const tok of qTokens) if (tSet.has(tok)) hit++;
 
-  // 토큰 겹침 비율 + 길이 보정
-  const ratio = hit / Math.max(1, qTokens.size);
+  const ratio = hit / Math.max(1, qTokens.length);
   return Math.round(ratio * 80);
 }
 
@@ -40,12 +39,12 @@ export default function App() {
   const [input, setInput] = useState("");
 
   useEffect(() => {
-    // 1) Cloudflare Pages Functions: /api/faqs (우선)
     (async () => {
       try {
         const r = await fetch("/api/faqs", { cache: "no-store" });
         const j = await r.json();
-        if (j?.ok && Array.isArray(j.faqs) && j.faqs.length > 0) {
+
+        if (j && j.ok && Array.isArray(j.faqs) && j.faqs.length > 0) {
           setRemoteFaq(j.faqs);
           setSource("remote");
           setErr("");
@@ -53,7 +52,6 @@ export default function App() {
         }
         throw new Error("remote faqs empty");
       } catch (e) {
-        // 2) 실패하면 로컬 fallback
         try {
           const r2 = await fetch("/faq-fallback.json", { cache: "no-store" });
           const j2 = await r2.json();
@@ -63,7 +61,7 @@ export default function App() {
         } catch (e2) {
           setSource("local");
           setLocalFaq([]);
-          setErr(String(e2?.message || e2));
+          setErr(String(e2 && e2.message ? e2.message : e2));
         }
       }
     })();
@@ -72,29 +70,21 @@ export default function App() {
   const faqList = source === "remote" ? remoteFaq : localFaq;
 
   const debugInfo = useMemo(() => {
-    return {
-      source,
-      count: faqList.length,
-    };
+    return { source, count: faqList.length };
   }, [source, faqList.length]);
 
   function findBestAnswer(userText) {
     if (!faqList.length) return null;
 
     const scored = faqList
-      .map((f) => ({
-        f,
-        s: scoreMatch(userText, f.q),
-      }))
+      .map((f) => ({ f, s: scoreMatch(userText, f.q) }))
       .sort((a, b) => b.s - a.s)
       .slice(0, 5);
 
     const best = scored[0];
     if (!best) return null;
 
-    // 점수가 너무 낮으면 "못 찾음" 처리
     if (best.s < 25) return { best: null, top: scored };
-
     return { best: best.f, top: scored };
   }
 
@@ -121,10 +111,9 @@ export default function App() {
         {
           role: "bot",
           text:
-            "해당 질문과 딱 맞는 FAQ를 찾지 못했어요 😥\n\n" +
-            "비슷한 질문 예시:\n" +
+            "해당 질문과 딱 맞는 FAQ를 찾지 못했어요 😥\n\n비슷한 질문 예시:\n" +
             result.top
-              .filter((x) => x?.f?.q)
+              .filter((x) => x && x.f && x.f.q)
               .slice(0, 3)
               .map((x) => `- ${x.f.q}`)
               .join("\n"),
@@ -145,9 +134,6 @@ export default function App() {
           <b>source:</b> {debugInfo.source} / <b>count:</b> {debugInfo.count}
         </div>
         {err ? <div style={{ color: "crimson" }}>error: {err}</div> : null}
-        <div style={{ marginTop: 4, opacity: 0.7 }}>
-          ※ 예쁜 화면은 <code>/</code>이고, <code>/api/faqs</code>는 데이터(JSON) 주소입니다.
-        </div>
       </div>
 
       <div className="chatbox">
