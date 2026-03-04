@@ -1,13 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
-/**
- * Kakao-like FAQ chat (frontend-only)
- * Data source:
- *  1) /api/faqs  (Cloudflare Pages Functions)
- *  2) fallback: /faq-fallback.json (public)
- */
-
 // --- utils ---
 const nowHHMM = () => {
   const d = new Date();
@@ -23,7 +16,7 @@ function normalizeText(s) {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/[“”‘’"'`]/g, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, ""); // keep letters/numbers (unicode)
+    .replace(/[^\p{L}\p{N}\s]/gu, "");
 }
 
 // Dice coefficient on character bigrams (works OK for Korean too)
@@ -56,15 +49,66 @@ function diceSimilarity(a, b) {
   return (2 * inter) / (sizeA + sizeB);
 }
 
-function pickTopFaqs(question, faqs, topN = 5) {
-  const scored = (faqs || [])
-    .map((f) => ({
-      ...f,
-      _score: diceSimilarity(question, f.q),
-    }))
-    .sort((x, y) => y._score - x._score);
+function tokenize(s) {
+  const t = normalizeText(s);
+  if (!t) return [];
+  return t.split(" ").filter(Boolean);
+}
 
-  return scored.slice(0, topN);
+function jaccardTokens(a, b) {
+  const A = new Set(tokenize(a));
+  const B = new Set(tokenize(b));
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  const union = A.size + B.size - inter;
+  return union ? inter / union : 0;
+}
+
+// ✅ {q,a} / {question,answer} 혼용 정규화
+function normalizeFaqs(raw) {
+  const arr = Array.isArray(raw) ? raw : [];
+  return arr
+    .map((x) => {
+      const q = x?.q ?? x?.question ?? x?.Q ?? x?.title ?? "";
+      const a = x?.a ?? x?.answer ?? x?.A ?? x?.content ?? "";
+      return { q: String(q).trim(), a: String(a).trim() };
+    })
+    .filter((x) => x.q && x.a);
+}
+
+/**
+ * ✅ 정확도 핵심:
+ * - dice(문자 bigram) + jaccard(단어) 혼합
+ * - "부분 포함"이면 강력하게 매칭 점수 올림
+ *   예: "환불" -> "환불 정책" / "환불 방법" 같은 질문에 0.9 이상
+ */
+function hybridScore(userQ, faqQ) {
+  const uq = normalizeText(userQ);
+  const fq = normalizeText(faqQ);
+  if (!uq || !fq) return 0;
+  if (uq === fq) return 1;
+
+  // 부분 포함이면 거의 확정 매칭
+  // (짧은 키워드 입력 대응: "환불", "결제", "배송" 등)
+  if (fq.includes(uq) || uq.includes(fq)) return 0.92;
+
+  const d = diceSimilarity(uq, fq);
+  const j = jaccardTokens(uq, fq);
+
+  // 짧은 입력일수록 단어기반이 약해지므로 dice 가중을 조금 더
+  const len = uq.length;
+  const wd = len <= 3 ? 0.85 : 0.65;
+  const wj = 1 - wd;
+
+  return wd * d + wj * j;
+}
+
+function pickTopFaqs(userQ, faqs, topN = 5) {
+  return (faqs || [])
+    .map((f) => ({ ...f, _score: hybridScore(userQ, f.q) }))
+    .sort((a, b) => b._score - a._score)
+    .slice(0, topN);
 }
 
 export default function App() {
@@ -72,64 +116,71 @@ export default function App() {
   const [source, setSource] = useState("loading");
   const [loadError, setLoadError] = useState("");
 
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
+
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState(() => [
     {
       id: crypto.randomUUID(),
       role: "bot",
-      text: "안녕하세요! 질문을 입력해 주세요 😊\n(FAQ에서 가장 비슷한 답을 찾아드려요.)",
+      text: "안녕하세요! 질문을 입력해 주세요 😊",
       time: nowHHMM(),
     },
   ]);
 
+  const [suggestBtns, setSuggestBtns] = useState([]); // ✅ 질문별 추천 버튼(top3)
   const listRef = useRef(null);
+  const sendingRef = useRef(false);
 
-  const suggestions = useMemo(() => {
-    // show 6 quick buttons from loaded FAQs
-    return (faqs || []).slice(0, 6).map((f) => f.q);
-  }, [faqs]);
-
+  // ✅ 테마 적용/저장
   useEffect(() => {
-    // scroll to bottom when new message
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  // ✅ 스크롤 유지
+  useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
+  // ✅ FAQ 로드
   useEffect(() => {
     (async () => {
       setLoadError("");
-      // 1) remote /api/faqs
+
       try {
         const r = await fetch("/api/faqs", { cache: "no-store" });
         if (r.ok) {
           const j = await r.json();
-          if (j?.ok && Array.isArray(j.faqs) && j.faqs.length > 0) {
-            setFaqs(j.faqs);
+          const normalized = normalizeFaqs(j?.faqs ?? j);
+          if ((j?.ok ?? true) && normalized.length > 0) {
+            setFaqs(normalized);
             setSource("remote");
             return;
           }
         }
-      } catch (e) {
-        // ignore; fallback below
-      }
+      } catch (e) {}
 
-      // 2) local fallback
       try {
         const r2 = await fetch("/faq-fallback.json", { cache: "no-store" });
         const j2 = await r2.json();
-        if (Array.isArray(j2) && j2.length > 0) {
-          setFaqs(j2);
+        const normalized2 = normalizeFaqs(j2);
+        if (normalized2.length > 0) {
+          setFaqs(normalized2);
           setSource("fallback");
           return;
         }
         setFaqs([]);
         setSource("empty");
-        setLoadError("FAQ 데이터를 불러오지 못했어요. (fallback도 비어있음)");
+        setLoadError("FAQ 데이터를 불러오지 못했어요.");
       } catch (e) {
         setFaqs([]);
         setSource("empty");
-        setLoadError("FAQ 데이터를 불러오지 못했어요. (fallback 파일 확인 필요)");
+        setLoadError("FAQ 데이터를 불러오지 못했어요.");
       }
     })();
   }, []);
@@ -141,69 +192,54 @@ export default function App() {
     ]);
   }
 
-  function answerFromFaq(userQ) {
+  function getAnswer(userQ) {
     const top = pickTopFaqs(userQ, faqs, 5);
     const best = top[0];
     const bestScore = best?._score ?? 0;
 
-    // thresholds (tweakable)
-    const OK = 0.42; // likely match
-    const MAYBE = 0.28; // show suggestions
+    // ✅ 추천 버튼은 "비슷한 형태"면 보여줘도 된다고 했으니,
+    //    최소 점수 이상인 후보들을 top3로 버튼화
+    const btns = top
+      .filter((x) => x._score >= 0.12) // 너무 엉뚱한 건 제외
+      .slice(0, 3)
+      .map((x) => x.q);
 
+    // ✅ 답변은 "이상한 문구 없이" 바로 답만
+    // - 확실: bestScore 높거나 부분포함이면 이미 0.92 들어옴
+    // - 애매: 그래도 best가 있으면 best.a를 답으로 주고, 버튼으로 선택 유도
     if (!best) {
       return {
-        type: "none",
-        text: "지금은 FAQ가 없어서 답을 못 찾았어요 😵",
-        top,
+        answer: "해당 문의에 대한 안내를 찾지 못했어요.",
+        btns: [],
       };
     }
 
-    if (bestScore >= OK) {
+    // 아주 낮은 점수면 답변 품질이 나쁠 수 있어서 최소 방어
+    // 하지만 사용자가 "비슷한 형태 문의면 보여줘도 됨"이라 했으니
+    // bestScore가 아주 낮을 때만 안내문.
+    if (bestScore < 0.10) {
       return {
-        type: "match",
-        text: best.a,
-        top,
+        answer: "해당 문의에 대한 안내를 찾지 못했어요.",
+        btns,
       };
     }
-
-    if (bestScore >= MAYBE) {
-      const list = top
-        .slice(0, 3)
-        .map((x) => `- ${x.q}`)
-        .join("\n");
-      return {
-        type: "maybe",
-        text:
-          "딱 맞는 질문은 못 찾았는데, 이 질문들이 비슷해 보여요 🤔\n" +
-          list +
-          "\n\n원하는 질문을 그대로 눌러보세요!",
-        top,
-      };
-    }
-
-    const list = top
-      .slice(0, 3)
-      .map((x) => `- ${x.q}`)
-      .join("\n");
 
     return {
-      type: "none",
-      text:
-        "해당 질문과 딱 맞는 FAQ를 찾지 못했어요 🥲\n" +
-        "비슷한 질문 예시:\n" +
-        list,
-      top,
+      answer: best.a,
+      btns,
     };
   }
 
   function handleSend(textOverride) {
+    if (sendingRef.current) return;
+
     const q = (textOverride ?? input).trim();
     if (!q) return;
 
+    sendingRef.current = true;
     pushMessage("user", q);
     setInput("");
 
-    // bot typing bubble 느낌
     const typingId = crypto.randomUUID();
     setMessages((prev) => [
       ...prev,
@@ -214,17 +250,34 @@ export default function App() {
       setMessages((prev) => prev.filter((m) => m.id !== typingId));
 
       if (!faqs?.length) {
-        pushMessage(
-          "bot",
-          "아직 FAQ 데이터를 못 불러왔어요 😵\n잠깐 후 새로고침하거나 fallback 파일을 확인해 주세요."
-        );
+        pushMessage("bot", "FAQ 데이터를 아직 불러오지 못했어요.");
+        setSuggestBtns([]);
+        sendingRef.current = false;
         return;
       }
 
-      const res = answerFromFaq(q);
-      pushMessage("bot", res.text);
-    }, 450);
+      const { answer, btns } = getAnswer(q);
+      setSuggestBtns(btns);
+      pushMessage("bot", answer);
+
+      sendingRef.current = false;
+    }, 250);
   }
+
+  // ✅ 첫 화면용(옵션) 빠른 버튼 6개: 원하면 유지, 싫으면 아래 블록 삭제 가능
+  const quickSuggestions = useMemo(() => {
+    const uniq = [];
+    const seen = new Set();
+    for (const f of faqs || []) {
+      const q = f?.q;
+      if (!q) continue;
+      if (seen.has(q)) continue;
+      seen.add(q);
+      uniq.push(q);
+      if (uniq.length >= 6) break;
+    }
+    return uniq;
+  }, [faqs]);
 
   return (
     <div className="kakao">
@@ -235,15 +288,22 @@ export default function App() {
             source: <b>{source}</b> / count: <b>{faqs.length}</b>
           </div>
         </div>
+
+        {/* ✅ 다크/라이트 토글 */}
+        <div className="topActions">
+          <button
+            className="modeBtn"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            title="테마 전환"
+          >
+            {theme === "dark" ? "화이트 모드" : "다크 모드"}
+          </button>
+        </div>
       </header>
 
       <main className="chatWrap">
         <div className="chat" ref={listRef}>
-          {loadError ? (
-            <div className="systemNotice">
-              <b>로드 오류:</b> {loadError}
-            </div>
-          ) : null}
+          {loadError ? <div className="systemNotice">{loadError}</div> : null}
 
           {messages.map((m) => (
             <div
@@ -269,9 +329,26 @@ export default function App() {
             </div>
           ))}
 
-          {suggestions?.length ? (
+          {/* ✅ 질문별 “비슷한 문의” 버튼 (텍스트로 길게 안내 안 함) */}
+          {suggestBtns?.length ? (
             <div className="quick">
-              {suggestions.map((q) => (
+              {suggestBtns.map((q) => (
+                <button
+                  key={q}
+                  className="quickBtn"
+                  onClick={() => handleSend(q)}
+                  title={q}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {/* ✅ (옵션) 기본 빠른 버튼 */}
+          {quickSuggestions?.length ? (
+            <div className="quick">
+              {quickSuggestions.map((q) => (
                 <button
                   key={q}
                   className="quickBtn"
@@ -292,10 +369,16 @@ export default function App() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleSend();
+              if (e.nativeEvent?.isComposing) return;
+              if (e.key === "Enter" && !e.repeat) handleSend();
             }}
           />
-          <button className="send" onClick={() => handleSend()}>
+          <button
+            className="send"
+            onClick={() => handleSend()}
+            disabled={sendingRef.current}
+            aria-disabled={sendingRef.current}
+          >
             보내기
           </button>
         </div>
