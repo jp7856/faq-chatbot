@@ -1,129 +1,269 @@
-/* ===== Theme variables ===== */
+/* ================================
+   Kakao-like theme (Light/Dark)
+================================ */
+
 :root {
-  --bg: #f6f7fb;
+  --bg: #bacee0;              /* 카카오 대화방 느낌 배경 */
   --panel: #ffffff;
   --text: #111827;
-  --muted: #6b7280;
+  --muted: rgba(17, 24, 39, 0.55);
   --border: rgba(0, 0, 0, 0.08);
 
   --botBubble: #ffffff;
-  --userBubble: #2f67ff;
-  --userText: #ffffff;
   --botText: #111827;
 
-  --btnBg: #ffffff;
-  --btnText: #111827;
-  --btnBorder: rgba(0, 0, 0, 0.12);
+  --userBubble: #ffe24a;      /* 카카오 노랑 */
+  --userText: #111827;
 
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --inputBg: #ffffff;
+  --inputText: #111827;
+
+  --sendBg: #ffe24a;
+  --sendText: #111827;
+
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  --radius: 18px;
 }
 
 :root[data-theme="dark"] {
   --bg: #0b1220;
   --panel: #0f172a;
   --text: #e5e7eb;
-  --muted: #9ca3af;
-  --border: rgba(255, 255, 255, 0.10);
+  --muted: rgba(229, 231, 235, 0.55);
+  --border: rgba(255, 255, 255, 0.12);
 
   --botBubble: #111c33;
-  --userBubble: #2f67ff;
-  --userText: #ffffff;
   --botText: #e5e7eb;
 
-  --btnBg: #0f172a;
-  --btnText: #e5e7eb;
-  --btnBorder: rgba(255, 255, 255, 0.14);
+  --userBubble: #ffe24a; /* 노랑은 유지 */
+  --userText: #111827;
+
+  --inputBg: #0f172a;
+  --inputText: #e5e7eb;
+
+  --sendBg: #ffe24a;
+  --sendText: #111827;
 
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-/* ===== Apply variables ===== */
+/* 기본 리셋 */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
+  margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Noto Sans KR", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* 전체 레이아웃 */
 .kakao {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
-  color: var(--text);
 }
 
+/* 상단바 */
 .topbar {
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  height: 56px;
+  display: grid;
+  grid-template-columns: 56px 1fr 120px;
+  align-items: center;
+  padding: 0 8px;
 }
 
-.title-sub {
-  color: var(--muted);
+.title {
+  grid-column: 2 / 3;
+  text-align: center;
+  line-height: 1;
+}
+
+.title-main {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
 
 .topActions {
+  grid-column: 3 / 4;
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  gap: 8px;
-  padding-right: 12px;
 }
 
 .modeBtn {
-  background: var(--btnBg);
-  color: var(--btnText);
-  border: 1px solid var(--btnBorder);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 7px 10px;
+  font-size: 12px;
   cursor: pointer;
 }
 
-.modeBtn:hover {
-  filter: brightness(0.98);
-}
+.modeBtn:hover { filter: brightness(0.98); }
 
+/* 채팅 영역 */
 .chatWrap {
-  background: var(--bg);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .chat {
-  background: var(--bg);
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px 10px;
 }
 
-.systemNotice {
+/* 말풍선 row */
+.row {
+  display: grid;
+  grid-template-columns: 34px auto auto;
+  gap: 8px;
+  align-items: end;
+  margin: 6px 0;
+}
+
+.row-right {
+  grid-template-columns: auto auto 34px;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   background: var(--panel);
   border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
   color: var(--text);
   box-shadow: var(--shadow);
 }
 
+.avatar.ghost {
+  visibility: hidden;
+}
+
+/* 말풍선 */
+.bubble {
+  max-width: min(70%, 520px);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  position: relative;
+  line-height: 1.35;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 봇 말풍선 */
 .bubble.bot {
   background: var(--botBubble);
   color: var(--botText);
   border: 1px solid var(--border);
 }
 
+/* 사용자 말풍선 */
 .bubble.user {
   background: var(--userBubble);
   color: var(--userText);
+  border: 0;
 }
 
+/* 꼬리 */
+.bubbleTail {
+  position: absolute;
+  bottom: 6px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+}
+
+.bubbleTail.bot {
+  left: -4px;
+  background: var(--botBubble);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.bubbleTail.user {
+  right: -4px;
+  background: var(--userBubble);
+}
+
+/* 텍스트 */
+.bubbleText.typing {
+  opacity: 0.75;
+}
+
+/* 시간 */
 .time {
+  font-size: 11px;
   color: var(--muted);
+  padding-bottom: 2px;
+  white-space: nowrap;
 }
 
+/* 입력창 */
 .composer {
   background: var(--panel);
   border-top: 1px solid var(--border);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 78px;
+  gap: 10px;
 }
 
 .input {
-  background: var(--panel);
-  color: var(--text);
+  width: 100%;
+  height: 40px;
+  border-radius: 999px;
   border: 1px solid var(--border);
+  padding: 0 14px;
+  background: var(--inputBg);
+  color: var(--inputText);
+  outline: none;
+  font-size: 14px;
 }
 
-.quickBtn {
-  background: var(--btnBg);
-  color: var(--btnText);
-  border: 1px solid var(--btnBorder);
+.input:focus {
+  border-color: rgba(47, 103, 255, 0.45);
+  box-shadow: 0 0 0 4px rgba(47, 103, 255, 0.10);
 }
 
-.hint {
-  color: var(--muted);
+.send {
+  height: 40px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--sendBg);
+  color: var(--sendText);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* (혹시 남아있으면) systemNotice */
+.systemNotice {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin: 10px 0;
+  font-size: 13px;
 }
