@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 
+// --- utils ---
 const nowHHMM = () => {
   const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(
-    d.getMinutes()
-  ).padStart(2, "0")}`;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 };
 
 function normalizeText(s) {
@@ -67,6 +68,7 @@ function hybridScore(userQ, faqQ) {
   if (!uq || !fq) return 0;
   if (uq === fq) return 1;
 
+  // 부분 포함이면 거의 확정 매칭
   if (fq.includes(uq) || uq.includes(fq)) return 0.92;
 
   return diceSimilarity(uq, fq);
@@ -81,21 +83,19 @@ function pickTopFaqs(userQ, faqs, topN = 5) {
 
 export default function App() {
   const [faqs, setFaqs] = useState([]);
-  const [source, setSource] = useState("loading");
-
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "light";
-  });
-
   const [input, setInput] = useState("");
 
-  // ✅ 기본 가이드(첫 말풍선) 제거: messages를 빈 배열로 시작
+  // ✅ 기본 가이드 말풍선 제거: 빈 배열 시작
   const [messages, setMessages] = useState(() => []);
 
   const listRef = useRef(null);
   const sendingRef = useRef(false);
 
-  // 테마 적용/저장
+  // ✅ 다크/화이트 토글
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
@@ -119,7 +119,6 @@ export default function App() {
           const normalized = normalizeFaqs(j?.faqs ?? j);
           if (normalized.length) {
             setFaqs(normalized);
-            setSource("remote");
             return;
           }
         }
@@ -132,13 +131,11 @@ export default function App() {
         const normalized2 = normalizeFaqs(j2);
         if (normalized2.length) {
           setFaqs(normalized2);
-          setSource("fallback");
           return;
         }
       } catch (e) {}
 
       setFaqs([]);
-      setSource("empty");
     })();
   }, []);
 
@@ -150,6 +147,8 @@ export default function App() {
   }
 
   function getAnswer(userQ) {
+    if (!faqs?.length) return "FAQ 데이터를 아직 불러오지 못했어요.";
+
     const top = pickTopFaqs(userQ, faqs, 5);
     const best = top[0];
     const bestScore = best?._score ?? 0;
@@ -178,11 +177,9 @@ export default function App() {
     setTimeout(() => {
       setMessages((prev) => prev.filter((m) => m.id !== typingId));
 
-      const answer = faqs?.length
-        ? getAnswer(q)
-        : "FAQ 데이터를 아직 불러오지 못했어요.";
-
+      const answer = getAnswer(q);
       push("bot", answer);
+
       sendingRef.current = false;
     }, 250);
   }
@@ -190,14 +187,11 @@ export default function App() {
   return (
     <div className="kakao">
       <header className="topbar">
-        {/* ✅ 상단 흰색 바: 한 줄로 이것만 */}
+        {/* ✅ 상단 흰색 바: 한 줄만 */}
         <div className="title">
           <div className="title-main">무엇을 도와드릴까요?</div>
-          {/* 필요하면 source/count는 숨김(아예 렌더 안 함) */}
-          {/* <div className="title-sub">source: <b>{source}</b> / count: <b>{faqs.length}</b></div> */}
         </div>
 
-        {/* 다크/라이트 토글 유지 */}
         <div className="topActions">
           <button
             className="modeBtn"
