@@ -3,7 +3,7 @@
 ================================ */
 
 :root {
-  --bg: #bacee0;              /* 카카오 대화방 느낌 배경 */
+  --bg: #bacee0;
   --panel: #ffffff;
   --text: #111827;
   --muted: rgba(17, 24, 39, 0.55);
@@ -12,7 +12,7 @@
   --botBubble: #ffffff;
   --botText: #111827;
 
-  --userBubble: #ffe24a;      /* 카카오 노랑 */
+  --userBubble: #ffe24a;
   --userText: #111827;
 
   --inputBg: #ffffff;
@@ -35,7 +35,7 @@
   --botBubble: #111c33;
   --botText: #e5e7eb;
 
-  --userBubble: #ffe24a; /* 노랑은 유지 */
+  --userBubble: #ffe24a;
   --userText: #111827;
 
   --inputBg: #0f172a;
@@ -47,107 +47,90 @@
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-/* 기본 리셋 */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
-    "Noto Sans KR", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+/* 기본 */
+* {
+  box-sizing: border-box;
 }
 
-/* 전체 레이아웃 */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+  background: var(--bg);
+}
+
+/* 전체 */
 .kakao {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
 }
 
 /* 상단바 */
 .topbar {
+  height: 56px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
-  height: 56px;
-  display: grid;
-  grid-template-columns: 56px 1fr 120px;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  padding: 0 8px;
-}
-
-.title {
-  grid-column: 2 / 3;
-  text-align: center;
-  line-height: 1;
+  position: relative;
 }
 
 .title-main {
-  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.2px;
+  font-size: 16px;
 }
 
 .topActions {
-  grid-column: 3 / 4;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  position: absolute;
+  right: 10px;
 }
 
 .modeBtn {
   border: 1px solid var(--border);
   background: var(--panel);
-  color: var(--text);
+  padding: 6px 10px;
   border-radius: 999px;
-  padding: 7px 10px;
   font-size: 12px;
   cursor: pointer;
 }
-
-.modeBtn:hover { filter: brightness(0.98); }
 
 /* 채팅 영역 */
 .chatWrap {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 .chat {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 12px 10px;
+  padding: 16px;
 }
 
-/* 말풍선 row */
+/* 메시지 */
 .row {
-  display: grid;
-  grid-template-columns: 34px auto auto;
-  gap: 8px;
-  align-items: end;
-  margin: 6px 0;
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 10px;
 }
 
 .row-right {
-  grid-template-columns: auto auto 34px;
+  justify-content: flex-end;
 }
 
 .avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--panel);
+  background: white;
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 12px;
-  color: var(--text);
-  box-shadow: var(--shadow);
+  font-weight: bold;
+  margin-right: 6px;
 }
 
 .avatar.ghost {
@@ -156,114 +139,64 @@ body {
 
 /* 말풍선 */
 .bubble {
-  max-width: min(70%, 520px);
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  position: relative;
-  line-height: 1.35;
+  padding: 10px 14px;
+  border-radius: 18px;
+  max-width: 70%;
   font-size: 14px;
-  white-space: pre-wrap;
-  word-break: break-word;
+  line-height: 1.4;
+  box-shadow: var(--shadow);
 }
 
-/* 봇 말풍선 */
 .bubble.bot {
   background: var(--botBubble);
-  color: var(--botText);
   border: 1px solid var(--border);
 }
 
-/* 사용자 말풍선 */
 .bubble.user {
   background: var(--userBubble);
-  color: var(--userText);
-  border: 0;
 }
 
-/* 꼬리 */
-.bubbleTail {
-  position: absolute;
-  bottom: 6px;
-  width: 10px;
-  height: 10px;
-  transform: rotate(45deg);
-}
-
-.bubbleTail.bot {
-  left: -4px;
-  background: var(--botBubble);
-  border-left: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.bubbleTail.user {
-  right: -4px;
-  background: var(--userBubble);
-}
-
-/* 텍스트 */
-.bubbleText.typing {
-  opacity: 0.75;
-}
-
-/* 시간 */
 .time {
   font-size: 11px;
   color: var(--muted);
-  padding-bottom: 2px;
-  white-space: nowrap;
+  margin-left: 6px;
 }
 
-/* 입력창 */
+/* 입력 영역 */
 .composer {
   background: var(--panel);
   border-top: 1px solid var(--border);
   padding: 10px;
   display: grid;
-  grid-template-columns: 1fr 78px;
+  grid-template-columns: 1fr auto;
   gap: 10px;
 }
 
+/* 입력창 */
 .input {
-  width: 100%;
   height: 40px;
   border-radius: 999px;
   border: 1px solid var(--border);
   padding: 0 14px;
-  background: var(--inputBg);
-  color: var(--inputText);
-  outline: none;
   font-size: 14px;
 }
 
-.input:focus {
-  border-color: rgba(47, 103, 255, 0.45);
-  box-shadow: 0 0 0 4px rgba(47, 103, 255, 0.10);
-}
-
+/* 보내기 버튼 */
 .send {
   height: 40px;
+  min-width: 90px;
+  padding: 0 18px;
   border-radius: 999px;
   border: 0;
   background: var(--sendBg);
   color: var(--sendText);
-  font-weight: 800;
+  font-weight: 700;
+  font-size: 14px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .send:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* (혹시 남아있으면) systemNotice */
-.systemNotice {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  padding: 10px 12px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  margin: 10px 0;
-  font-size: 13px;
 }
