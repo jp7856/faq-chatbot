@@ -1,6 +1,8 @@
 /* ================================
    Kakao-like theme (Light/Dark)
-   + Centered panel (fixed)
+   + Centered panel
+   + Header left align
+   + Input placeholder center
 ================================ */
 
 :root {
@@ -49,7 +51,6 @@
 }
 
 * { box-sizing: border-box; }
-
 html, body { height: 100%; margin: 0; }
 
 body {
@@ -58,12 +59,10 @@ body {
   background: var(--bg);
   color: var(--text);
 
-  /* ✅ 전체를 가운데 정렬 */
   display: flex;
   align-items: center;
   justify-content: center;
 
-  /* ✅ 좌우/상하 여백 */
   padding: 24px;
   overflow: hidden;
 }
@@ -72,9 +71,7 @@ body {
    Centered card/panel
 ========================= */
 .kakao {
-  /* ✅ 가운데 카드 */
   width: min(520px, 100%);
-  /* ✅ 세로를 화면의 절반 정도로 (요청: 가로 대비 세로 너무 큼 → 줄이기) */
   height: min(520px, 50vh);
 
   display: flex;
@@ -98,21 +95,24 @@ body {
 
   display: flex;
   align-items: center;
-  justify-content: center;
 
   position: relative;
   padding: 0 12px;
 }
 
+/* ✅ 제목: 좌측 정렬 */
 .title-main {
   font-weight: 800;
   font-size: 16px;
   letter-spacing: -0.2px;
+
+  margin-right: auto;    /* 왼쪽으로 붙이고 */
+  text-align: left;      /* 좌측 정렬 */
+  padding-left: 4px;
 }
 
 .topActions {
-  position: absolute;
-  right: 10px;
+  margin-left: auto;
   display: flex;
   align-items: center;
 }
@@ -136,8 +136,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-
-  background: rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .chat {
@@ -183,9 +182,6 @@ body {
   flex: 0 0 auto;
 }
 
-/* =========================
-   Bubbles
-========================= */
 .bubble {
   position: relative;
   max-width: 75%;
@@ -260,6 +256,14 @@ body {
   background: var(--inputBg);
   color: var(--inputText);
   outline: none;
+
+  /* ✅ 입력 텍스트도 가운데로(원치 않으면 지워도 됨) */
+  text-align: center;
+}
+
+/* ✅ placeholder 가운데 정렬 */
+.input::placeholder {
+  text-align: center;
 }
 
 .input:focus {
@@ -286,7 +290,6 @@ body {
   cursor: not-allowed;
 }
 
-/* 작은 화면에서 높이 확보 */
 @media (max-height: 680px) {
   .kakao {
     height: min(520px, 70vh);
