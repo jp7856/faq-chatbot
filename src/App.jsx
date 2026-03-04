@@ -89,14 +89,13 @@ function hybridScore(userQ, faqQ) {
   if (!uq || !fq) return 0;
   if (uq === fq) return 1;
 
-  // 부분 포함이면 거의 확정 매칭
-  // (짧은 키워드 입력 대응: "환불", "결제", "배송" 등)
+  // 부분 포함이면 거의 확정 매칭 (짧은 키워드 입력 대응)
   if (fq.includes(uq) || uq.includes(fq)) return 0.92;
 
   const d = diceSimilarity(uq, fq);
   const j = jaccardTokens(uq, fq);
 
-  // 짧은 입력일수록 단어기반이 약해지므로 dice 가중을 조금 더
+  // 짧은 입력일수록 dice 가중을 더
   const len = uq.length;
   const wd = len <= 3 ? 0.85 : 0.65;
   const wj = 1 - wd;
@@ -121,16 +120,17 @@ export default function App() {
   });
 
   const [input, setInput] = useState("");
+
+  // ✅ 첫 봇 메시지 변경
   const [messages, setMessages] = useState(() => [
     {
       id: crypto.randomUUID(),
       role: "bot",
-      text: "안녕하세요! 질문을 입력해 주세요 😊",
+      text: "안녕하세요~ 무엇을 도와드릴까요?",
       time: nowHHMM(),
     },
   ]);
 
-  const [suggestBtns, setSuggestBtns] = useState([]); // ✅ 질문별 추천 버튼(top3)
   const listRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -197,37 +197,17 @@ export default function App() {
     const best = top[0];
     const bestScore = best?._score ?? 0;
 
-    // ✅ 추천 버튼은 "비슷한 형태"면 보여줘도 된다고 했으니,
-    //    최소 점수 이상인 후보들을 top3로 버튼화
-    const btns = top
-      .filter((x) => x._score >= 0.12) // 너무 엉뚱한 건 제외
-      .slice(0, 3)
-      .map((x) => x.q);
-
-    // ✅ 답변은 "이상한 문구 없이" 바로 답만
-    // - 확실: bestScore 높거나 부분포함이면 이미 0.92 들어옴
-    // - 애매: 그래도 best가 있으면 best.a를 답으로 주고, 버튼으로 선택 유도
     if (!best) {
-      return {
-        answer: "해당 문의에 대한 안내를 찾지 못했어요.",
-        btns: [],
-      };
+      return { answer: "해당 문의에 대한 안내를 찾지 못했어요." };
     }
 
-    // 아주 낮은 점수면 답변 품질이 나쁠 수 있어서 최소 방어
-    // 하지만 사용자가 "비슷한 형태 문의면 보여줘도 됨"이라 했으니
-    // bestScore가 아주 낮을 때만 안내문.
+    // 너무 낮은 점수면 답변 품질 방어
     if (bestScore < 0.10) {
-      return {
-        answer: "해당 문의에 대한 안내를 찾지 못했어요.",
-        btns,
-      };
+      return { answer: "해당 문의에 대한 안내를 찾지 못했어요." };
     }
 
-    return {
-      answer: best.a,
-      btns,
-    };
+    // ✅ “이상한 문구 없이” 답만
+    return { answer: best.a };
   }
 
   function handleSend(textOverride) {
@@ -251,33 +231,16 @@ export default function App() {
 
       if (!faqs?.length) {
         pushMessage("bot", "FAQ 데이터를 아직 불러오지 못했어요.");
-        setSuggestBtns([]);
         sendingRef.current = false;
         return;
       }
 
-      const { answer, btns } = getAnswer(q);
-      setSuggestBtns(btns);
+      const { answer } = getAnswer(q);
       pushMessage("bot", answer);
 
       sendingRef.current = false;
     }, 250);
   }
-
-  // ✅ 첫 화면용(옵션) 빠른 버튼 6개: 원하면 유지, 싫으면 아래 블록 삭제 가능
-  const quickSuggestions = useMemo(() => {
-    const uniq = [];
-    const seen = new Set();
-    for (const f of faqs || []) {
-      const q = f?.q;
-      if (!q) continue;
-      if (seen.has(q)) continue;
-      seen.add(q);
-      uniq.push(q);
-      if (uniq.length >= 6) break;
-    }
-    return uniq;
-  }, [faqs]);
 
   return (
     <div className="kakao">
@@ -328,38 +291,6 @@ export default function App() {
               <div className="time">{m.time}</div>
             </div>
           ))}
-
-          {/* ✅ 질문별 “비슷한 문의” 버튼 (텍스트로 길게 안내 안 함) */}
-          {suggestBtns?.length ? (
-            <div className="quick">
-              {suggestBtns.map((q) => (
-                <button
-                  key={q}
-                  className="quickBtn"
-                  onClick={() => handleSend(q)}
-                  title={q}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {/* ✅ (옵션) 기본 빠른 버튼 */}
-          {quickSuggestions?.length ? (
-            <div className="quick">
-              {quickSuggestions.map((q) => (
-                <button
-                  key={q}
-                  className="quickBtn"
-                  onClick={() => handleSend(q)}
-                  title={q}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         <div className="composer">
